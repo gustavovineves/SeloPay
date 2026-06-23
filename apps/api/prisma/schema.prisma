@@ -1,0 +1,453 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ───────────────────────────────────────────────
+
+enum AgreementType {
+  GUARANTEED
+}
+
+enum AgreementStatus {
+  DRAFT
+  PENDING_ACCEPTANCE
+  EXPIRED
+  REJECTED
+  WAITING_DEPOSIT
+  ACTIVE
+  IN_NEGOTIATION
+  IN_DISPUTE
+  COMPLETED
+  CANCELLED
+}
+
+enum FinancialStatus {
+  NO_FINANCIAL_MOVEMENT
+  WAITING_SIMULATED_DEPOSIT
+  SIMULATED_PAYMENT_PROCESSING
+  SIMULATED_PAYMENT_CONFIRMED
+  VALUE_HELD
+  VALUE_LOCKED_BY_DISPUTE
+  VALUE_RELEASED
+  REFUND_PENDING
+  VALUE_REFUNDED
+}
+
+enum WalletTransactionType {
+  SIMULATED_DEPOSIT
+  VALUE_HELD
+  VALUE_RELEASED
+  VALUE_RECEIVED
+  SIMULATED_REFUND
+  VALUE_LOCKED_BY_DISPUTE
+  DISPUTE_RESOLVED_RELEASE
+  DISPUTE_RESOLVED_REFUND
+}
+
+enum DisputeStatus {
+  OPEN
+  UNDER_REVIEW
+  RESOLVED
+  CLOSED
+}
+
+enum AdminDecisionType {
+  RELEASE_TO_RECEIVER
+  REFUND_TO_PAYER
+  PROPOSE_RENEGOTIATION
+  REQUEST_MORE_EVIDENCE
+}
+
+enum NegotiationStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  EXPIRED
+}
+
+enum SimulatedPaymentStatus {
+  PENDING
+  PROCESSING
+  CONFIRMED
+  FAILED
+}
+
+enum PixDepositStatus {
+  PENDING
+  CONFIRMED
+  EXPIRED
+  FAILED
+}
+
+enum ConfirmationRole {
+  PAYER
+  RECEIVER
+}
+
+enum ConfirmationType {
+  OBLIGATION_FULFILLED
+  READY_TO_RECEIVE
+  DISPUTE_OPENED
+  RENEGOTIATION_REQUESTED
+}
+
+enum ScoreEventType {
+  AGREEMENT_COMPLETED
+  AGREEMENT_DISPUTED_RESOLVED
+  AGREEMENT_DEFAULTED
+  DISPUTE_OPENED_AGAINST_USER
+  DISPUTE_WON
+  DISPUTE_LOST
+  RENEGOTIATION_ACCEPTED
+  LATE_PAYMENT
+}
+
+enum BlockchainEventType {
+  AGREEMENT_CREATED
+  AGREEMENT_ACCEPTED
+  AGREEMENT_REJECTED
+  AGREEMENT_CANCELLED
+  AGREEMENT_COMPLETED
+  GUARANTEE_DEPOSITED_WALLET
+  GUARANTEE_DEPOSITED_PIX
+  GUARANTEE_DEPOSITED_CARD
+  VALUE_RELEASED
+  VALUE_REFUNDED
+  DISPUTE_OPENED
+  DISPUTE_RESPONSE_ADDED
+  ADMIN_DECISION_RELEASE
+  ADMIN_DECISION_REFUND
+  ADMIN_DECISION_RENEGOTIATION
+  RENEGOTIATION_ACCEPTED
+  PIX_DEPOSIT_CONFIRMED
+  CARD_ACTIVATED
+  CARD_LIMIT_RECALCULATED
+  CARD_LIMIT_BLOCKED
+  CARD_LIMIT_RELEASED
+}
+
+enum BlockchainRecordStatus {
+  REGISTERED
+  CONFIRMED
+}
+
+enum VirtualCardStatus {
+  INACTIVE
+  ACTIVE
+  BLOCKED
+}
+
+enum CardTransactionType {
+  GUARANTEE_BLOCK
+  GUARANTEE_RELEASE
+  GUARANTEE_SETTLE
+}
+
+// ─── Models ──────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  cpf          String   @unique
+  cpfMasked    String
+  email        String   @unique
+  passwordHash String
+  seloKey      String   @unique
+  score        Int      @default(100)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  wallet                Wallet?
+  agreementsAsPayer     Agreement[]              @relation("Payer")
+  agreementsAsReceiver  Agreement[]              @relation("Receiver")
+  confirmations         AgreementConfirmation[]
+  disputesOpened        Dispute[]                @relation("DisputeOpener")
+  disputeResponses      DisputeResponse[]        @relation("DisputeResponder")
+  negotiationsProposed  Negotiation[]            @relation("NegotiationProposer")
+  scoreEvents           ScoreEvent[]
+  simulatedPayments     SimulatedPayment[]
+  pixDeposits           PixDeposit[]
+  blockchainRecords     BlockchainRecord[]
+  virtualCard           VirtualCard?
+
+  @@map("users")
+}
+
+model Wallet {
+  id               String   @id @default(cuid())
+  userId           String   @unique
+  availableBalance Float    @default(0)
+  blockedBalance   Float    @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  user         User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions WalletTransaction[]
+
+  @@map("wallets")
+}
+
+model WalletTransaction {
+  id          String                @id @default(cuid())
+  walletId    String
+  type        WalletTransactionType
+  amount      Float
+  description String
+  agreementId String?
+  createdAt   DateTime              @default(now())
+
+  wallet    Wallet     @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  agreement Agreement? @relation(fields: [agreementId], references: [id])
+
+  @@map("wallet_transactions")
+}
+
+model Agreement {
+  id              String          @id @default(cuid())
+  type            AgreementType
+  payerId         String
+  receiverId      String
+  amount          Float
+  dueDate         DateTime
+  status          AgreementStatus @default(PENDING_ACCEPTANCE)
+  financialStatus FinancialStatus @default(NO_FINANCIAL_MOVEMENT)
+  expiresAt       DateTime
+  acceptedAt      DateTime?
+  completedAt     DateTime?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  payer             User                    @relation("Payer", fields: [payerId], references: [id])
+  receiver          User                    @relation("Receiver", fields: [receiverId], references: [id])
+  confirmations     AgreementConfirmation[]
+  disputes          Dispute[]
+  negotiations      Negotiation[]
+  simulatedPayment  SimulatedPayment?
+  walletTx          WalletTransaction[]
+  blockchainRecords BlockchainRecord[]
+  cardTransactions  CardTransaction[]
+
+  @@map("agreements")
+}
+
+model AgreementConfirmation {
+  id               String           @id @default(cuid())
+  agreementId      String
+  userId           String
+  role             ConfirmationRole
+  confirmationType ConfirmationType
+  createdAt        DateTime         @default(now())
+
+  agreement Agreement @relation(fields: [agreementId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id])
+
+  @@map("agreement_confirmations")
+}
+
+model Dispute {
+  id            String            @id @default(cuid())
+  agreementId   String
+  openedById    String
+  title         String
+  description   String            @db.Text
+  status        DisputeStatus     @default(OPEN)
+  adminDecision AdminDecisionType?
+  adminNotes    String?           @db.Text
+  resolvedAt    DateTime?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  agreement Agreement        @relation(fields: [agreementId], references: [id], onDelete: Cascade)
+  openedBy  User             @relation("DisputeOpener", fields: [openedById], references: [id])
+  evidences DisputeEvidence[]
+  history   DisputeHistory[]
+  responses DisputeResponse[]
+
+  @@map("disputes")
+}
+
+model DisputeEvidence {
+  id         String   @id @default(cuid())
+  disputeId  String
+  fileName   String
+  fileUrl    String
+  fileType   String
+  uploadedBy String
+  createdAt  DateTime @default(now())
+
+  dispute Dispute @relation(fields: [disputeId], references: [id], onDelete: Cascade)
+
+  @@map("dispute_evidences")
+}
+
+model DisputeHistory {
+  id          String    @id @default(cuid())
+  disputeId   String
+  action      String
+  performedBy String
+  notes       String?
+  createdAt   DateTime  @default(now())
+
+  dispute Dispute @relation(fields: [disputeId], references: [id], onDelete: Cascade)
+
+  @@map("dispute_history")
+}
+
+model DisputeResponse {
+  id        String                   @id @default(cuid())
+  disputeId String
+  authorId  String
+  message   String                   @db.Text
+  createdAt DateTime                 @default(now())
+
+  dispute   Dispute                  @relation(fields: [disputeId], references: [id], onDelete: Cascade)
+  author    User                     @relation("DisputeResponder", fields: [authorId], references: [id])
+  evidences DisputeResponseEvidence[]
+
+  @@map("dispute_responses")
+}
+
+model DisputeResponseEvidence {
+  id         String          @id @default(cuid())
+  responseId String
+  fileName   String
+  fileUrl    String
+  fileType   String
+  createdAt  DateTime        @default(now())
+
+  response   DisputeResponse @relation(fields: [responseId], references: [id], onDelete: Cascade)
+
+  @@map("dispute_response_evidences")
+}
+
+model Negotiation {
+  id              String            @id @default(cuid())
+  agreementId     String
+  proposedDueDate DateTime
+  proposedById    String
+  payerAccepted   Boolean           @default(false)
+  receiverAccepted Boolean          @default(false)
+  status          NegotiationStatus @default(PENDING)
+  expiresAt       DateTime
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  agreement  Agreement @relation(fields: [agreementId], references: [id], onDelete: Cascade)
+  proposedBy User      @relation("NegotiationProposer", fields: [proposedById], references: [id])
+
+  @@map("negotiations")
+}
+
+model SimulatedPayment {
+  id          String                 @id @default(cuid())
+  agreementId String                 @unique
+  payerId     String
+  amount      Float
+  status      SimulatedPaymentStatus @default(PENDING)
+  fakePixCode String
+  fakeQrCode  String
+  createdAt   DateTime               @default(now())
+  confirmedAt DateTime?
+
+  agreement Agreement @relation(fields: [agreementId], references: [id], onDelete: Cascade)
+  payer     User      @relation(fields: [payerId], references: [id])
+
+  @@map("simulated_payments")
+}
+
+model ScoreEvent {
+  id          String         @id @default(cuid())
+  userId      String
+  type        ScoreEventType
+  delta       Int
+  description String
+  agreementId String?
+  createdAt   DateTime       @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("score_events")
+}
+
+model PixDeposit {
+  id            String           @id @default(cuid())
+  userId        String
+  amount        Float
+  status        PixDepositStatus @default(PENDING)
+  qrCodePayload String
+  copyPasteCode String
+  expiresAt     DateTime
+  createdAt     DateTime         @default(now())
+  confirmedAt   DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("pix_deposits")
+}
+
+model AdminUser {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("admin_users")
+}
+
+model BlockchainRecord {
+  id           String                 @id @default(cuid())
+  agreementId  String?
+  userId       String?
+  eventType    BlockchainEventType
+  payload      Json
+  previousHash String
+  hash         String                 @unique
+  txHash       String
+  status       BlockchainRecordStatus @default(CONFIRMED)
+  createdAt    DateTime               @default(now())
+
+  agreement Agreement? @relation(fields: [agreementId], references: [id])
+  user      User?      @relation(fields: [userId], references: [id])
+
+  @@map("blockchain_records")
+}
+
+model VirtualCard {
+  id           String            @id @default(cuid())
+  userId       String            @unique
+  status       VirtualCardStatus @default(INACTIVE)
+  creditLimit  Float             @default(0)
+  usedLimit    Float             @default(0)
+  maskedNumber String
+  holderName   String
+  expiresAt    DateTime
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions CardTransaction[]
+
+  @@map("virtual_cards")
+}
+
+model CardTransaction {
+  id          String              @id @default(cuid())
+  cardId      String
+  agreementId String?
+  type        CardTransactionType
+  amount      Float
+  description String
+  createdAt   DateTime            @default(now())
+
+  card      VirtualCard @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  agreement Agreement?  @relation(fields: [agreementId], references: [id])
+
+  @@map("card_transactions")
+}

@@ -1,0 +1,46 @@
+{
+  "expo": {
+    "name": "SeloPay",
+    "slug": "selopay",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "selopay",
+    "userInterfaceStyle": "light",
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#FFFFFF"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.tcc.selopay",
+      "icon": "./assets/icon.png"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0A4F5E"
+      },
+      "package": "com.tcc.selopay"
+    },
+    "web": {
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "expo-splash-screen",
+      "expo-font",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Permite selecionar imagens para anexar a contestações."
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

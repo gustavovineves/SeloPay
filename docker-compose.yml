@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: selopay_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: selopay
+      POSTGRES_PASSWORD: selopay_dev_pass
+      POSTGRES_DB: selopay
+    ports:
+      - '5435:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:

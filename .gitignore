@@ -1,0 +1,55 @@
+node_modules/
+dist/
+.next/
+.expo/
+*.env
+!.env.example
+*.env.local
+*.env.development.local
+*.env.test.local
+*.env.production.local
+
+# Prisma
+apps/api/prisma/migrations/**/migration.sql.bak
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+
+# Build artifacts
+build/
+out/
+.turbo/
+
+# Test coverage
+coverage/
+
+# pnpm
+.pnpm-store/
+.pnpm-debug.log
+
+# Uploads (evidence files — not committed)
+apps/api/uploads/
+
+# TCC docs (optional — remove this line if you want them in the repo)
+# tcc/
+
+# Cache
+.cache/
+*.tsbuildinfo
+
+# Expo
+android/
+ios/
+web-build/

@@ -1,0 +1,31 @@
+{
+  "name": "selopay",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev:api": "pnpm --filter api dev",
+    "dev:mobile": "pnpm --filter mobile start",
+    "dev:admin": "pnpm --filter admin dev",
+    "build:api": "pnpm --filter api build",
+    "build:admin": "pnpm --filter admin build",
+    "test:api": "pnpm --filter api test",
+    "test:e2e": "pnpm --filter api test:e2e",
+    "prisma:generate": "pnpm --filter api prisma generate",
+    "prisma:migrate": "pnpm --filter api prisma migrate dev",
+    "prisma:deploy": "pnpm --filter api prisma migrate deploy",
+    "prisma:studio": "pnpm --filter api prisma studio",
+    "prisma:seed": "pnpm --filter api prisma db seed",
+    "reset:demo": "pnpm --filter api reset:demo"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.3"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@nestjs/core",
+      "@prisma/client",
+      "@prisma/engines",
+      "prisma"
+    ]
+  }
+}
